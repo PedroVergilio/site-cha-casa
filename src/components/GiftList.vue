@@ -1,87 +1,68 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { db } from '../firebase' // Importa a sua conexão com o Firebase!
+import { collection, onSnapshot, doc, updateDoc, addDoc } from 'firebase/firestore'
 
-// 1. O TERRENO PREPARADO (Mock Data)
-// Aqui você e sua esposa vão colocar os itens reais depois.
-// No futuro, essa lista virá do Firebase!
-const gifts = ref([
-  {
-    id: 1,
-    name: "Jogo de Panelas Antiaderente",
-    price: "R$ 450,00",
-    image: "https://images.unsplash.com/photo-1584990347449-a16bf14800e2?q=80&w=600&auto=format&fit=crop",
-    link: "https://www.magazineluiza.com.br/...",
-    reservedBy: null // Se tiver nome, está bloqueado
-  },
-  {
-    id: 2,
-    name: "Liquidificador Oster",
-    price: "R$ 220,00",
-    image: "https://images.unsplash.com/photo-1585237832863-718252277d54?q=80&w=600&auto=format&fit=crop",
-    link: "https://www.amazon.com.br/...",
-    reservedBy: "Tia Maria" // Exemplo de item já reservado
-  },
-  {
-    id: 3,
-    name: "Faqueiro Inox 72 Peças",
-    price: "R$ 180,00",
-    image: "https://images.unsplash.com/photo-1590322744743-34e8590c1f51?q=80&w=600&auto=format&fit=crop",
-    link: "https://www.mercadolivre.com.br/...",
-    reservedBy: null
-  }
-])
-
-// Variáveis para controlar a janela (modal) de reserva
+const gifts = ref([]) // A lista agora começa vazia, vai vir do banco!
 const selectedGift = ref(null)
-const guestName = ref('')
 const isModalOpen = ref(false)
+const isReservedStep = ref(false)
 
-// 2. FUNÇÕES DE AÇÃO
+// Aponta para a "pasta" de presentes no banco
+const giftsCollection = collection(db, 'gifts')
+
+// 1. ESCUTAR O BANCO EM TEMPO REAL
+onMounted(() => {
+  onSnapshot(giftsCollection, (snapshot) => {
+    const loadedGifts = []
+    snapshot.forEach((doc) => {
+      // Pega a ID única que o Firebase gerou e junta com os dados do presente
+      loadedGifts.push({ id: doc.id, ...doc.data() })
+    })
+    gifts.value = loadedGifts // Atualiza a tela automaticamente
+  })
+})
+
+
+// 3. ATUALIZAR RESERVA NO FIREBASE DE VERDADE
 const openModal = (gift) => {
   selectedGift.value = gift
   isModalOpen.value = true
+  isReservedStep.value = false 
 }
 
-const confirmReservation = () => {
-  if (!guestName.value) {
-    alert("Por favor, digite seu nome!")
-    return
-  }
+const confirmReservation = async () => {
+  // Encontra o documento exato no banco e muda o status para reservado
+  const giftRef = doc(db, 'gifts', selectedGift.value.id)
+  await updateDoc(giftRef, { reserved: true })
+  
+  isReservedStep.value = true
+}
 
-  // AQUI ENTRARÁ O FIREBASE NO FUTURO
-  // Simulando a reserva localmente:
-  const index = gifts.value.findIndex(g => g.id === selectedGift.value.id)
-  gifts.value[index].reservedBy = guestName.value
-  
-  // Salva o link antes de fechar o modal
-  const linkToBuy = selectedGift.value.link
-  
-  // Limpa e fecha o modal
+const closeModal = () => {
   isModalOpen.value = false
-  guestName.value = ''
   selectedGift.value = null
-
-  // Redireciona o convidado para a loja
-  window.open(linkToBuy, '_blank')
 }
 </script>
 
+
 <template>
   <div>
+    <!-- GRID DE PRESENTES -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
       
       <div 
         v-for="gift in gifts" 
         :key="gift.id" 
-        class="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden border border-stone-100 flex flex-col"
-        :class="{ 'opacity-60 grayscale': gift.reservedBy }"
+        class="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-stone-100 flex flex-col"
+        :class="{ 'opacity-60 grayscale': gift.reserved }"
       >
         <div class="aspect-video w-full overflow-hidden bg-stone-100 relative">
           <img :src="gift.image" :alt="gift.name" class="w-full h-full object-cover" />
           
-          <div v-if="gift.reservedBy" class="absolute inset-0 bg-black/40 flex items-center justify-center">
+          <div v-if="gift.reserved" class="absolute inset-0 bg-stone-900/40 flex items-center justify-center">
             <span class="bg-white text-stone-800 px-4 py-2 rounded-full font-semibold text-sm shadow-lg">
-              🔒 Escolhido por {{ gift.reservedBy }}
+              🔒 Presente Reservado
             </span>
           </div>
         </div>
@@ -90,10 +71,11 @@ const confirmReservation = () => {
           <h3 class="text-xl font-semibold text-stone-800 mb-2">{{ gift.name }}</h3>
           <p class="text-stone-500 font-medium mb-6">{{ gift.price }}</p>
           
+          <!-- Botão com a cor verde personalizada -->
           <button 
-            v-if="!gift.reservedBy"
+            v-if="!gift.reserved"
             @click="openModal(gift)"
-            class="mt-auto w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl transition-colors"
+            class="mt-auto w-full bg-[#689550] hover:brightness-95 text-white font-medium py-3 rounded-xl transition-all"
           >
             Dar este presente
           </button>
@@ -110,42 +92,65 @@ const confirmReservation = () => {
 
     </div>
 
-    <div v-if="isModalOpen" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div class="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl">
-        <h2 class="text-2xl font-serif font-bold text-stone-800 mb-4">Que alegria!</h2>
-        <p class="text-stone-600 mb-6">
-          Você escolheu nos presentear com: <br>
-          <strong class="text-stone-800">{{ selectedGift.name }}</strong>
-        </p>
+    <!-- MODAL -->
+    <div v-if="isModalOpen" class="fixed inset-0 bg-stone-900/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+      <div class="bg-white border border-stone-200 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl">
         
-        <div class="mb-6">
-          <label class="block text-sm font-medium text-stone-700 mb-2">Seu nome e sobrenome</label>
-          <input 
-            v-model="guestName" 
-            type="text" 
-            placeholder="Ex: Tio João e Tia Maria" 
-            class="w-full px-4 py-3 rounded-xl border border-stone-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-          >
+        <!-- ETAPA 1 -->
+        <div v-if="!isReservedStep">
+          <h2 class="text-2xl font-serif font-bold text-stone-800 mb-4">Que alegria!</h2>
+          <p class="text-stone-600 mb-8">
+            Você escolheu nos presentear com: <br>
+            <strong class="text-stone-800 text-lg">{{ selectedGift.name }}</strong>
+          </p>
+
+          <div class="flex gap-4">
+            <button 
+              @click="closeModal"
+              class="flex-1 px-4 py-3 bg-white text-stone-700 border border-stone-200 rounded-xl font-medium hover:bg-stone-50 transition-colors"
+            >
+              Voltar
+            </button>
+            <button 
+              @click="confirmReservation"
+              class="flex-1 px-4 py-3 bg-[#689550] hover:brightness-95 text-white rounded-xl font-medium transition-all shadow-md"
+            >
+              Confirmar Reserva
+            </button>
+          </div>
         </div>
 
-        <p class="text-xs text-stone-500 mb-6">
-          Ao confirmar, esse item ficará bloqueado na lista para outras pessoas e você será redirecionado para a loja onde pode comprá-lo.
-        </p>
+        <!-- ETAPA 2: Escolher a Loja -->
+        <div v-else class="text-center">
+          <div class="w-16 h-16 bg-[#fff9ea] text-[#689550] rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm border border-[#689550]/20">
+            ✓
+          </div>
+          <h2 class="text-2xl font-serif font-bold text-stone-800 mb-2">Reserva Confirmada!</h2>
+          <p class="text-stone-600 mb-6">
+            Muito obrigado! O item já foi bloqueado na lista. Agora, escolha onde prefere comprar:
+          </p>
 
-        <div class="flex gap-4">
+          <div class="flex flex-col gap-3">
+            <a 
+              v-for="(link, index) in selectedGift.links" 
+              :key="index"
+              :href="link.url" 
+              target="_blank"
+              class="block w-full py-3 px-4 bg-white text-stone-700 border border-stone-200 rounded-xl font-medium hover:bg-[#fff9ea] hover:text-[#689550] hover:border-[#689550] transition-all text-left flex justify-between items-center shadow-sm"
+            >
+              Comprar na {{ link.store }}
+              <span class="text-xl">➔</span>
+            </a>
+          </div>
+
           <button 
-            @click="isModalOpen = false"
-            class="flex-1 px-4 py-3 bg-stone-100 text-stone-700 rounded-xl font-medium hover:bg-stone-200 transition-colors"
+            @click="closeModal"
+            class="mt-6 text-stone-500 hover:text-stone-700 font-medium underline transition-colors"
           >
-            Cancelar
-          </button>
-          <button 
-            @click="confirmReservation"
-            class="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
-          >
-            Confirmar e Comprar
+            Fechar e voltar para a lista
           </button>
         </div>
+
       </div>
     </div>
 
