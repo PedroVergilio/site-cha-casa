@@ -3,12 +3,10 @@ import { ref, onMounted } from 'vue'
 import { db } from '../firebase' // Importa a sua conexão com o Firebase!
 import { collection, onSnapshot, doc, updateDoc, addDoc } from 'firebase/firestore'
 
-const gifts = ref([]) // A lista agora começa vazia, vai vir do banco!
+const gifts = ref([])
 const selectedGift = ref(null)
 const isModalOpen = ref(false)
 const isReservedStep = ref(false)
-
-// Aponta para a "pasta" de presentes no banco
 const giftsCollection = collection(db, 'gifts')
 
 // 1. ESCUTAR O BANCO EM TEMPO REAL
@@ -23,6 +21,14 @@ onMounted(() => {
   })
 })
 
+// Função que garante que o link sempre tenha https://
+const formatUrl = (url) => {
+  if (!url) return '#'
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  return `https://${url}`
+}
 
 // 3. ATUALIZAR RESERVA NO FIREBASE DE VERDADE
 const openModal = (gift) => {
@@ -134,10 +140,10 @@ const closeModal = () => {
             <a 
               v-for="(link, index) in selectedGift.links" 
               :key="index"
-              :href="link.url" 
+              :href="formatUrl(link.url)" 
               target="_blank"
               class="block w-full py-3 px-4 bg-white text-stone-700 border border-stone-200 rounded-xl font-medium hover:bg-[#fff9ea] hover:text-[#689550] hover:border-[#689550] transition-all text-left flex justify-between items-center shadow-sm"
-            >
+              >
               Comprar na {{ link.store }}
               <span class="text-xl">➔</span>
             </a>
