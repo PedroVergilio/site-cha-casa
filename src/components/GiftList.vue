@@ -58,8 +58,8 @@ const closeModal = () => {
         class="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-stone-100 flex flex-col"
         :class="{ 'opacity-60 grayscale': gift.reserved }"
       >
-        <div class="aspect-video w-full overflow-hidden bg-stone-100 relative">
-          <img :src="gift.image" :alt="gift.name" class="w-full h-full object-cover" />
+        <div class="aspect-video w-full overflow-hidden bg-white relative border-b border-stone-100">
+          <img :src="gift.image" :alt="gift.name" class="w-full h-full object-contain p-4" />
           
           <div v-if="gift.reserved" class="absolute inset-0 bg-stone-900/40 flex items-center justify-center">
             <span class="bg-white text-stone-800 px-4 py-2 rounded-full font-semibold text-sm shadow-lg">

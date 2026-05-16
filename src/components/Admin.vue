@@ -1,15 +1,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { db } from '../firebase'
-import { collection, addDoc, onSnapshot, deleteDoc, doc } from 'firebase/firestore'
+import { collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore'
 
-// === LÓGICA DE LOGIN (Agora sem salvar sessão) ===
+// === LÓGICA DE LOGIN ===
 const isAuthenticated = ref(false)
 const passwordInput = ref('')
 const errorMessage = ref('')
 
 const checkPassword = () => {
-  // Compara o que a pessoa digitou com a senha do arquivo .env
   if (passwordInput.value === import.meta.env.VITE_ADMIN_PASSWORD) {
     isAuthenticated.value = true
   } else {
@@ -20,7 +19,7 @@ const checkPassword = () => {
 
 const logout = () => {
   isAuthenticated.value = false
-  passwordInput.value = '' // Limpa o campo de senha por segurança extra
+  passwordInput.value = ''
 }
 
 // === LÓGICA DO BANCO DE DADOS ===
@@ -30,6 +29,10 @@ const image = ref('')
 const links = ref([{ store: '', url: '' }])
 const gifts = ref([])
 const giftsCollection = collection(db, 'gifts')
+
+// Variáveis para controlar a edição
+const isEditing = ref(false)
+const editingId = ref(null)
 
 onMounted(() => {
   onSnapshot(giftsCollection, (snapshot) => {
@@ -44,18 +47,60 @@ onMounted(() => {
 const addLinkField = () => { links.value.push({ store: '', url: '' }) }
 const removeLinkField = (index) => { links.value.splice(index, 1) }
 
+// Função que puxa os dados para o formulário
+const editGift = (gift) => {
+  name.value = gift.name
+  price.value = gift.price
+  image.value = gift.image
+  
+  // Copia os links de forma segura para não bugar a tela
+  if (gift.links && gift.links.length > 0) {
+    links.value = JSON.parse(JSON.stringify(gift.links))
+  } else {
+    links.value = [{ store: '', url: '' }]
+  }
+
+  isEditing.value = true
+  editingId.value = gift.id
+
+  // Rola a tela suavemente para o formulário lá no topo
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+// Cancela a edição e limpa o formulário
+const cancelEdit = () => {
+  name.value = ''
+  price.value = ''
+  image.value = ''
+  links.value = [{ store: '', url: '' }]
+  isEditing.value = false
+  editingId.value = null
+}
+
 const saveGift = async () => {
   if (!name.value || !price.value) return alert("Preencha ao menos nome e preço!")
+  
   try {
-    await addDoc(giftsCollection, {
+    const giftData = {
       name: name.value,
       price: price.value,
       image: image.value || 'https://images.unsplash.com/photo-1556911220-e150213ff7ad?q=80&w=800',
-      links: links.value.filter(l => l.store && l.url),
-      reserved: false
-    })
-    alert("Presente cadastrado com sucesso!")
-    name.value = ''; price.value = ''; image.value = ''; links.value = [{ store: '', url: '' }]
+      links: links.value.filter(l => l.store && l.url)
+    }
+
+    if (isEditing.value) {
+      // ATUALIZA O EXISTENTE
+      await updateDoc(doc(db, 'gifts', editingId.value), giftData)
+      alert("Presente atualizado com sucesso!")
+    } else {
+      // CRIA UM NOVO
+      giftData.reserved = false // Apenas na criação define como não reservado
+      await addDoc(giftsCollection, giftData)
+      alert("Presente cadastrado com sucesso!")
+    }
+    
+    // Limpa o formulário no final
+    cancelEdit()
   } catch (e) {
     alert("Erro ao salvar: " + e.message)
   }
@@ -110,10 +155,12 @@ const deleteGift = async (id, giftName) => {
 
     <div v-else class="space-y-12">
       
-      <div class="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 relative">
+      <div class="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 relative transition-all" :class="{'ring-2 ring-[#A7B59D] bg-[#A7B59D]/5': isEditing}">
         <button @click="logout" class="absolute top-8 right-8 text-sm text-stone-400 hover:text-red-500 underline transition-colors">Sair / Trancar</button>
         
-        <h2 class="text-3xl font-serif font-bold text-[#D7A49A] mb-6 pr-20">Cadastrar Presente</h2>
+        <h2 class="text-3xl font-serif font-bold text-[#D7A49A] mb-6 pr-20">
+          {{ isEditing ? 'Editar Presente' : 'Cadastrar Presente' }}
+        </h2>
         
         <div class="space-y-4">
           <div>
@@ -129,21 +176,38 @@ const deleteGift = async (id, giftName) => {
           <div>
             <label class="block text-sm font-medium text-stone-700 mb-1">URL da Imagem</label>
             <input v-model="image" type="text" placeholder="Link da foto do produto" class="w-full p-3 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-[#A7B59D]">
+            
+            <div v-if="image" class="mt-2 w-24 h-24 border border-stone-200 rounded-lg overflow-hidden bg-white p-1">
+              <img :src="image" class="w-full h-full object-contain" />
+            </div>
           </div>
 
           <div class="pt-4 border-t border-stone-100">
             <h3 class="font-bold text-stone-800 mb-3">Links das Lojas</h3>
             <div v-for="(link, index) in links" :key="index" class="flex gap-2 mb-2">
-              <input v-model="link.store" placeholder="Loja (ex: Amazon)" class="flex-1 p-3 rounded-xl border border-stone-200 outline-none">
-              <input v-model="link.url" placeholder="Link (http://...)" class="flex-[2] p-3 rounded-xl border border-stone-200 outline-none">
+              <input v-model="link.store" placeholder="Loja (ex: Amazon)" class="flex-1 p-3 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-[#A7B59D]">
+              <input v-model="link.url" placeholder="Link (http://...)" class="flex-[2] p-3 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-[#A7B59D]">
               <button @click="removeLinkField(index)" class="text-red-400 px-2 hover:text-red-600 font-bold">✕</button>
             </div>
             <button @click="addLinkField" class="text-[#A7B59D] font-bold text-sm">+ Adicionar loja</button>
           </div>
 
-          <button @click="saveGift" class="w-full bg-[#A7B59D] text-white font-bold py-4 rounded-2xl shadow-lg shadow-[#A7B59D]/20 hover:brightness-95 transition-all mt-6">
-            Salvar Presente
-          </button>
+          <div class="flex gap-4 mt-6">
+            <button 
+              v-if="isEditing" 
+              @click="cancelEdit" 
+              class="flex-1 bg-stone-100 text-stone-600 font-bold py-4 rounded-2xl hover:bg-stone-200 transition-all"
+            >
+              Cancelar
+            </button>
+            
+            <button 
+              @click="saveGift" 
+              class="flex-[2] bg-[#A7B59D] text-white font-bold py-4 rounded-2xl shadow-lg shadow-[#A7B59D]/20 hover:brightness-95 transition-all"
+            >
+              {{ isEditing ? 'Atualizar Presente' : 'Salvar Presente' }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -155,15 +219,32 @@ const deleteGift = async (id, giftName) => {
         </div>
 
         <div v-else class="divide-y divide-stone-100 max-h-96 overflow-y-auto pr-2">
-          <div v-for="gift in gifts" :key="gift.id" class="py-4 flex items-center justify-between gap-4">
-            <div class="flex items-center gap-4">
-              <img :src="gift.image" :alt="gift.name" class="w-12 h-12 rounded-lg object-cover bg-stone-100 shadow-sm" />
+          <div v-for="gift in gifts" :key="gift.id" class="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
+            
+            <div class="flex items-center gap-4 flex-1">
+              <img :src="gift.image" :alt="gift.name" class="w-14 h-14 rounded-lg object-contain bg-white border border-stone-100 p-1" />
               <div>
-                <h4 class="font-bold text-stone-800 line-clamp-1">{{ gift.name }}</h4>
+                <h4 class="font-bold text-stone-800">{{ gift.name }}</h4>
                 <p class="text-sm text-stone-500">{{ gift.price }} <span v-if="gift.reserved" class="text-amber-600 font-medium ml-2">(Reservado)</span></p>
               </div>
             </div>
-            <button @click="deleteGift(gift.id, gift.name)" class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-bold transition-colors">Remover</button>
+            
+            <div class="flex gap-2 opacity-100 sm:opacity-50 sm:group-hover:opacity-100 transition-opacity">
+              <button 
+                @click="editGift(gift)" 
+                class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-2 rounded-xl text-sm font-bold transition-colors"
+              >
+                Editar
+              </button>
+              
+              <button 
+                @click="deleteGift(gift.id, gift.name)" 
+                class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-bold transition-colors"
+              >
+                Remover
+              </button>
+            </div>
+
           </div>
         </div>
       </div>
