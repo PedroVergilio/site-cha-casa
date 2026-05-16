@@ -24,13 +24,13 @@ const copyPix = async () => {
 <template>
   <div class="min-h-screen bg-[#EAE8E3] py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-300 relative">
     
-    <header class="text-center mb-16 max-w-3xl mx-auto">
+    <header class="text-center mb-16 max-w-5xl mx-auto px-4">
       <h1 class="text-4xl md:text-5xl font-serif text-[#D7A49A] font-bold tracking-tight drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
         Nosso Chá de Casa Nova
       </h1>
       
       <div class="mt-6 space-y-3 text-lg text-[#D7A49A] font-medium leading-relaxed">
-        <p>Estamos montando nosso lar e reunimos aqui alguns itens que ficaríamos muito felizes em ganhar.</p>
+        <p>Estamos montando nosso lar e reunimos aqui alguns itens que ficaríamos muito felizes&nbsp;em&nbsp;ganhar.</p>
         <p>Caso prefira, também aceitamos um PIX de qualquer valor para nos ajudar nessa nova fase. 🏡✨</p>
       </div>
 
