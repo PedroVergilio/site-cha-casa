@@ -3,23 +3,15 @@ import { ref, onMounted } from 'vue'
 import { db } from '../firebase'
 import { collection, addDoc, onSnapshot, deleteDoc, doc } from 'firebase/firestore'
 
-// === LÓGICA DE LOGIN ===
+// === LÓGICA DE LOGIN (Agora sem salvar sessão) ===
 const isAuthenticated = ref(false)
 const passwordInput = ref('')
 const errorMessage = ref('')
-
-// Verifica se a pessoa já logou antes
-onMounted(() => {
-  if (sessionStorage.getItem('admin_auth') === 'true') {
-    isAuthenticated.value = true
-  }
-})
 
 const checkPassword = () => {
   // Compara o que a pessoa digitou com a senha do arquivo .env
   if (passwordInput.value === import.meta.env.VITE_ADMIN_PASSWORD) {
     isAuthenticated.value = true
-    sessionStorage.setItem('admin_auth', 'true') // Salva o login na sessão atual
   } else {
     errorMessage.value = 'Senha incorreta! Xô, penetra! 🛑'
     passwordInput.value = ''
@@ -28,10 +20,10 @@ const checkPassword = () => {
 
 const logout = () => {
   isAuthenticated.value = false
-  sessionStorage.removeItem('admin_auth')
+  passwordInput.value = '' // Limpa o campo de senha por segurança extra
 }
 
-// === LÓGICA DO BANCO DE DADOS (Inalterada) ===
+// === LÓGICA DO BANCO DE DADOS ===
 const name = ref('')
 const price = ref('')
 const image = ref('')
