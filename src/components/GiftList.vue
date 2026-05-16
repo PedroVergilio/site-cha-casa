@@ -95,7 +95,7 @@ const closeModal = () => {
       <div class="bg-white border border-stone-200 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl">
         
         <div v-if="!isReservedStep">
-          <h2 class="text-3xl font-serif font-bold text-[#D7A49A] mb-4 text-center">Que alegria!</h2>
+          <!-- <h2 class="text-3xl font-serif font-bold text-[#D7A49A] mb-4 text-center">Que alegria!</h2> -->
           
           <div class="w-full h-48 mb-6 rounded-2xl overflow-hidden border border-stone-100 shadow-inner bg-stone-50">
             <img 
