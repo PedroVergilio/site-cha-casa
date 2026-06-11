@@ -116,6 +116,18 @@ const deleteGift = async (id, giftName) => {
     alert("Erro ao remover: " + e.message)
   }
 }
+
+const unreserveGift = async (id, giftName) => {
+  const confirmacao = confirm(`Deseja liberar o presente "${giftName}" para ser comprado novamente?`)
+  if (!confirmacao) return
+  
+  try {
+    await updateDoc(doc(db, 'gifts', id), { reserved: false })
+    alert("Presente liberado com sucesso!")
+  } catch (e) {
+    alert("Erro ao liberar: " + e.message)
+  }
+}
 </script>
 
 <template>
@@ -225,7 +237,11 @@ const deleteGift = async (id, giftName) => {
               <img :src="gift.image" :alt="gift.name" class="w-14 h-14 rounded-lg object-contain bg-white border border-stone-100 p-1" />
               <div>
                 <h4 class="font-bold text-stone-800">{{ gift.name }}</h4>
-                <p class="text-sm text-stone-500">{{ gift.price }} <span v-if="gift.reserved" class="text-amber-600 font-medium ml-2">(Reservado)</span></p>
+                <p class="text-sm text-stone-500">{{ gift.price }} 
+                  <span v-if="gift.reserved" class="text-amber-600 font-medium ml-2">(Reservado 🔒)
+                    <button @click="unreserveGift(gift.id, gift.name)" class="text-blue-500 hover:text-blue-700 underline text-xs ml-2 transition-colors">Desfazer reserva</button>
+                </span>
+                </p>
               </div>
             </div>
             
